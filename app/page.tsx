@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { requireUser, AuthError } from "@/lib/authz";
 import { getMyTours } from "@/lib/actions";
-import { APP_NAME, APP_TAGLINE } from "@/lib/brand";
+import { APP_DISPLAY_NAME, APP_TAGLINE } from "@/lib/brand";
+import { Logo } from "@/components/logo";
 import { GoogleSignIn } from "@/components/google-sign-in";
 import { CreateJoinTour } from "@/components/create-join-tour";
 import { SignOutButton } from "@/components/sign-out-button";
@@ -20,7 +21,10 @@ export default async function HomePage() {
     return (
       <main className="flex min-h-[80dvh] flex-col justify-center gap-8">
         <header className="space-y-2 text-center">
-          <h1 className="text-3xl font-bold text-brand">{APP_NAME}</h1>
+          <div className="flex items-center justify-center gap-3">
+            <Logo className="h-12 w-12 shrink-0" />
+            <h1 className="text-3xl font-bold text-brand">{APP_DISPLAY_NAME}</h1>
+          </div>
           <p className="text-base text-slate-600">{APP_TAGLINE}</p>
         </header>
         <GoogleSignIn />
@@ -34,9 +38,12 @@ export default async function HomePage() {
   return (
     <main className="space-y-6">
       <header className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-brand">{APP_NAME}</h1>
-          <p className="text-sm text-slate-500">Signed in as {user.name}</p>
+        <div className="flex items-center gap-3">
+          <Logo className="h-10 w-10 shrink-0" />
+          <div>
+            <h1 className="text-2xl font-bold text-brand">{APP_DISPLAY_NAME}</h1>
+            <p className="text-sm text-slate-500">Signed in as {user.name}</p>
+          </div>
         </div>
         <SignOutButton />
       </header>
