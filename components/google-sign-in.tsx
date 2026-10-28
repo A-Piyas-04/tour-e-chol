@@ -11,10 +11,12 @@ export function GoogleSignIn() {
     setLoading(true);
     setError(null);
     const supabase = createClient();
-    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? window.location.origin;
+    // Always redirect back to the origin the user is actually on, so auth works
+    // regardless of what NEXT_PUBLIC_SITE_URL is set to. This origin must be in
+    // the Supabase redirect allow list.
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
-      options: { redirectTo: `${siteUrl}/auth/callback` },
+      options: { redirectTo: `${window.location.origin}/auth/callback` },
     });
     if (error) {
       setError("Could not start Google sign-in. Please try again.");
