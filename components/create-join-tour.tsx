@@ -61,7 +61,7 @@ function CreateForm({ onBack }: { onBack: () => void }) {
   return (
     <form onSubmit={submit} className="grid gap-3">
       <BackButton onClick={onBack} />
-      <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+      <label className="text-sm font-medium text-slate-700">
         Tour name
         <input
           value={name}
@@ -72,7 +72,7 @@ function CreateForm({ onBack }: { onBack: () => void }) {
           required
         />
       </label>
-      <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+      <label className="text-sm font-medium text-slate-700">
         Join PIN (8 digits)
         <input
           value={pin}
@@ -118,7 +118,7 @@ function JoinForm({ onBack }: { onBack: () => void }) {
   return (
     <form onSubmit={submit} className="grid gap-3">
       <BackButton onClick={onBack} />
-      <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+      <label className="text-sm font-medium text-slate-700">
         Join PIN
         <input
           value={pin}

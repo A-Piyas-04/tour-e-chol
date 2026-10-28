@@ -21,7 +21,7 @@ export default async function HomePage() {
       <main className="flex min-h-[80dvh] flex-col justify-center gap-8">
         <header className="space-y-2 text-center">
           <h1 className="text-3xl font-bold text-brand">{APP_NAME}</h1>
-          <p className="text-base text-slate-600 dark:text-slate-300">{APP_TAGLINE}</p>
+          <p className="text-base text-slate-600">{APP_TAGLINE}</p>
         </header>
         <GoogleSignIn />
       </main>

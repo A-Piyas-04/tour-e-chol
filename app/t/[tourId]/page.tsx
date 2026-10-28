@@ -27,7 +27,7 @@ export default async function TourPage({
         <Link href="/" className="text-sm font-medium text-brand">
           ← All tours
         </Link>
-        <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-50">{data.tourName}</h1>
+        <h1 className="text-2xl font-bold text-slate-900">{data.tourName}</h1>
         <p className="text-sm text-slate-500">{data.userName}</p>
       </header>
 
