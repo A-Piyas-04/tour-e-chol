@@ -37,12 +37,12 @@ export default async function HomePage() {
 
   return (
     <main className="space-y-6">
-      <header className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
+      <header className="flex items-center justify-between gap-3">
+        <div className="flex min-w-0 items-center gap-3">
           <Logo className="h-10 w-10 shrink-0" />
-          <div>
+          <div className="min-w-0">
             <h1 className="text-2xl font-bold text-brand">{APP_DISPLAY_NAME}</h1>
-            <p className="text-sm text-slate-500">Signed in as {user.name}</p>
+            <p className="truncate text-sm text-slate-500">Signed in as {user.name}</p>
           </div>
         </div>
         <SignOutButton />
@@ -62,10 +62,10 @@ export default async function HomePage() {
               <li key={t.id}>
                 <Link
                   href={`/t/${t.id}`}
-                  className="flex min-h-[56px] items-center justify-between rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm active:scale-[0.99]"
+                  className="flex min-h-[56px] items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm active:scale-[0.99]"
                 >
-                  <span className="font-medium text-slate-800">{t.name}</span>
-                  <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium capitalize text-slate-600">
+                  <span className="min-w-0 truncate font-medium text-slate-800">{t.name}</span>
+                  <span className="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium capitalize text-slate-600">
                     {t.role}
                   </span>
                 </Link>

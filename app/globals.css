@@ -22,4 +22,11 @@ body {
   margin: 0 auto;
   min-height: 100dvh;
   padding: 16px 16px calc(24px + var(--safe-bottom));
+  /* Safety net: never let a stray wide child cause horizontal scrolling. */
+  overflow-x: hidden;
+}
+
+/* Long unbroken strings (names, IDs) should wrap instead of overflowing. */
+.app-shell :where(h1, h2, h3, p, span, button, a, time, label) {
+  overflow-wrap: anywhere;
 }

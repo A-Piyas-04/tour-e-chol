@@ -46,15 +46,15 @@ export function BalanceLists({
 
   return (
     <div className="space-y-5">
-      <div className="flex items-center justify-between">
-        <span className="text-xs text-slate-400">
+      <div className="flex items-center justify-between gap-3">
+        <span className="min-w-0 text-xs text-slate-400">
           Amounts are recorded obligations — the app never moves money.
         </span>
         <button
           type="button"
           onClick={refresh}
           disabled={refreshing}
-          className="rounded-full border border-slate-200 px-3 py-1 text-xs font-medium text-slate-600 disabled:opacity-60"
+          className="shrink-0 rounded-full border border-slate-200 px-3 py-1 text-xs font-medium text-slate-600 disabled:opacity-60"
         >
           {refreshing ? "Refreshing…" : "Refresh"}
         </button>
@@ -109,10 +109,10 @@ function Section({
           {rows.map((r) => (
             <li
               key={r.name}
-              className="flex items-center justify-between border-b border-slate-100 px-4 py-3 last:border-b-0"
+              className="flex items-center justify-between gap-3 border-b border-slate-100 px-4 py-3 last:border-b-0"
             >
-              <span className="font-medium text-slate-800">{r.name}</span>
-              <span className={`font-semibold tabular-nums ${accent}`}>{formatTaka(r.paisa)}</span>
+              <span className="min-w-0 break-words font-medium text-slate-800">{r.name}</span>
+              <span className={`shrink-0 font-semibold tabular-nums ${accent}`}>{formatTaka(r.paisa)}</span>
             </li>
           ))}
           <li className="flex items-center justify-between bg-slate-50 px-4 py-3">

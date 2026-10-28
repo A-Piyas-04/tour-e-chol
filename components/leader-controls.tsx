@@ -33,19 +33,19 @@ export function LeaderControls({
       {error && <p className="text-sm text-red-600">{error}</p>}
       <ul className="divide-y divide-slate-100">
         {members.map((m) => (
-          <li key={m.userId} className="flex items-center justify-between py-2">
-            <span className="text-slate-800">
+          <li key={m.userId} className="flex items-center justify-between gap-3 py-2">
+            <span className="min-w-0 break-words text-slate-800">
               {m.name}{" "}
               <span className="text-xs capitalize text-slate-400">· {m.role}</span>
             </span>
             {m.role === "owner" ? (
-              <span className="text-xs text-slate-400">Creator</span>
+              <span className="shrink-0 text-xs text-slate-400">Creator</span>
             ) : m.role === "leader" ? (
               <button
                 type="button"
                 onClick={() => toggle(m.userId, false)}
                 disabled={busyId === m.userId}
-                className="rounded-full border border-slate-300 px-3 py-1 text-xs font-medium text-slate-600 disabled:opacity-50"
+                className="shrink-0 rounded-full border border-slate-300 px-3 py-1 text-xs font-medium text-slate-600 disabled:opacity-50"
               >
                 Demote
               </button>
@@ -54,7 +54,7 @@ export function LeaderControls({
                 type="button"
                 onClick={() => toggle(m.userId, true)}
                 disabled={busyId === m.userId}
-                className="rounded-full bg-brand px-3 py-1 text-xs font-medium text-white disabled:opacity-50"
+                className="shrink-0 rounded-full bg-brand px-3 py-1 text-xs font-medium text-white disabled:opacity-50"
               >
                 Make leader
               </button>

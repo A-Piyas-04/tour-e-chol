@@ -153,7 +153,7 @@ export function ExpenseForm({
                 type="button"
                 key={m.userId}
                 onClick={() => toggleParticipant(m.userId)}
-                className={`min-h-[40px] rounded-full border px-3 py-1 text-sm font-medium ${
+                className={`min-h-[40px] max-w-full break-words rounded-full border px-3 py-1 text-left text-sm font-medium ${
                   active
                     ? "border-brand bg-brand text-white"
                     : "border-slate-300 bg-white text-slate-700"
@@ -174,7 +174,7 @@ export function ExpenseForm({
             <select
               value={p.userId}
               onChange={(e) => updatePayer(p.key, { userId: e.target.value })}
-              className="min-h-[44px] flex-1 rounded-xl border border-slate-300 bg-white px-2 text-sm text-slate-900"
+              className="min-h-[44px] w-full min-w-0 flex-1 rounded-xl border border-slate-300 bg-white px-2 text-sm text-slate-900"
             >
               {members.map((m) => (
                 <option key={m.userId} value={m.userId}>
@@ -187,14 +187,14 @@ export function ExpenseForm({
               onChange={(e) => updatePayer(p.key, { taka: e.target.value })}
               inputMode="decimal"
               placeholder="৳"
-              className="min-h-[44px] w-24 rounded-xl border border-slate-300 px-3 text-base text-slate-900"
+              className="min-h-[44px] w-24 shrink-0 rounded-xl border border-slate-300 px-3 text-base text-slate-900"
             />
             <button
               type="button"
               onClick={() => removePayerRow(p.key)}
               disabled={payers.length <= 1}
               aria-label="Remove payer"
-              className="min-h-[44px] w-11 rounded-xl border border-slate-300 text-slate-500 disabled:opacity-40"
+              className="min-h-[44px] w-11 shrink-0 rounded-xl border border-slate-300 text-slate-500 disabled:opacity-40"
             >
               ×
             </button>
@@ -207,7 +207,7 @@ export function ExpenseForm({
 
       {/* Totals */}
       <div
-        className={`flex items-center justify-between rounded-xl px-3 py-2 text-sm ${
+        className={`flex flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-xl px-3 py-2 text-sm ${
           amountsMatch ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"
         }`}
       >
