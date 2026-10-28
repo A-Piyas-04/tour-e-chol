@@ -1,0 +1,236 @@
+"use client";
+
+import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import { addExpense, type ManageMember } from "@/lib/actions";
+import { parseTakaToPaisa, formatTaka } from "@/lib/money";
+
+interface PayerRow {
+  key: number;
+  userId: string;
+  taka: string;
+}
+
+/** Parse leniently for live totals: invalid/empty -> null (not an error). */
+function tryPaisa(value: string): number | null {
+  try {
+    return parseTakaToPaisa(value);
+  } catch {
+    return null;
+  }
+}
+
+export function ExpenseForm({
+  tourId,
+  members,
+}: {
+  tourId: string;
+  members: ManageMember[];
+}) {
+  const router = useRouter();
+  const [title, setTitle] = useState("");
+  const [totalTaka, setTotalTaka] = useState("");
+  const [participants, setParticipants] = useState<Set<string>>(new Set());
+  const [payers, setPayers] = useState<PayerRow[]>([
+    { key: 1, userId: members[0]?.userId ?? "", taka: "" },
+  ]);
+  const [busy, setBusy] = useState(false);
+  const [toast, setToast] = useState<{ kind: "ok" | "err"; msg: string } | null>(null);
+
+  const totalPaisa = tryPaisa(totalTaka);
+  const paidPaisa = useMemo(
+    () => payers.reduce((sum, p) => sum + (tryPaisa(p.taka) ?? 0), 0),
+    [payers],
+  );
+  const amountsMatch = totalPaisa !== null && paidPaisa === totalPaisa;
+  const canSubmit =
+    !busy &&
+    title.trim() !== "" &&
+    totalPaisa !== null &&
+    participants.size > 0 &&
+    payers.every((p) => p.userId && tryPaisa(p.taka) !== null) &&
+    amountsMatch;
+
+  function toggleParticipant(id: string) {
+    setParticipants((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function updatePayer(key: number, patch: Partial<PayerRow>) {
+    setPayers((prev) => prev.map((p) => (p.key === key ? { ...p, ...patch } : p)));
+  }
+
+  function addPayerRow() {
+    setPayers((prev) => [...prev, { key: Date.now(), userId: members[0]?.userId ?? "", taka: "" }]);
+  }
+
+  function removePayerRow(key: number) {
+    setPayers((prev) => (prev.length <= 1 ? prev : prev.filter((p) => p.key !== key)));
+  }
+
+  function reset() {
+    setTitle("");
+    setTotalTaka("");
+    setParticipants(new Set());
+    setPayers([{ key: Date.now(), userId: members[0]?.userId ?? "", taka: "" }]);
+  }
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!canSubmit) return;
+    setBusy(true);
+    setToast(null);
+    const res = await addExpense({
+      tourId,
+      title,
+      totalTaka,
+      participantIds: [...participants],
+      payers: payers.map((p) => ({ userId: p.userId, taka: p.taka })),
+    });
+    if (res.ok) {
+      setToast({ kind: "ok", msg: "Expense saved." });
+      reset();
+      router.refresh();
+    } else {
+      setToast({ kind: "err", msg: res.error ?? "Could not save the expense." });
+    }
+    setBusy(false);
+  }
+
+  return (
+    <form onSubmit={submit} className="space-y-4 rounded-2xl border border-slate-200 bg-white p-4">
+      <h2 className="text-base font-semibold text-slate-800">Add Expense</h2>
+
+      <label className="block text-sm font-medium text-slate-700">
+        Title
+        <input
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          maxLength={100}
+          placeholder="Breakfast at KFC"
+          className="mt-1 min-h-[44px] w-full rounded-xl border border-slate-300 px-3 text-base text-slate-900"
+          required
+        />
+      </label>
+
+      <label className="block text-sm font-medium text-slate-700">
+        Total amount (৳)
+        <input
+          value={totalTaka}
+          onChange={(e) => setTotalTaka(e.target.value)}
+          inputMode="decimal"
+          placeholder="1000.00"
+          className="mt-1 min-h-[44px] w-full rounded-xl border border-slate-300 px-3 text-base text-slate-900"
+          required
+        />
+      </label>
+
+      {/* Participants */}
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <span className="text-sm font-medium text-slate-700">
+            Who shared this expense?{" "}
+            <span className="font-normal text-slate-400">({participants.size} selected)</span>
+          </span>
+          <div className="flex gap-2 text-xs font-medium text-brand">
+            <button type="button" onClick={() => setParticipants(new Set(members.map((m) => m.userId)))}>
+              Select all
+            </button>
+            <button type="button" onClick={() => setParticipants(new Set())} className="text-slate-400">
+              Clear
+            </button>
+          </div>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {members.map((m) => {
+            const active = participants.has(m.userId);
+            return (
+              <button
+                type="button"
+                key={m.userId}
+                onClick={() => toggleParticipant(m.userId)}
+                className={`min-h-[40px] rounded-full border px-3 py-1 text-sm font-medium ${
+                  active
+                    ? "border-brand bg-brand text-white"
+                    : "border-slate-300 bg-white text-slate-700"
+                }`}
+              >
+                {m.name}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Payers */}
+      <div className="space-y-2">
+        <span className="text-sm font-medium text-slate-700">Who actually paid?</span>
+        {payers.map((p) => (
+          <div key={p.key} className="flex gap-2">
+            <select
+              value={p.userId}
+              onChange={(e) => updatePayer(p.key, { userId: e.target.value })}
+              className="min-h-[44px] flex-1 rounded-xl border border-slate-300 bg-white px-2 text-sm text-slate-900"
+            >
+              {members.map((m) => (
+                <option key={m.userId} value={m.userId}>
+                  {m.name}
+                </option>
+              ))}
+            </select>
+            <input
+              value={p.taka}
+              onChange={(e) => updatePayer(p.key, { taka: e.target.value })}
+              inputMode="decimal"
+              placeholder="৳"
+              className="min-h-[44px] w-24 rounded-xl border border-slate-300 px-3 text-base text-slate-900"
+            />
+            <button
+              type="button"
+              onClick={() => removePayerRow(p.key)}
+              disabled={payers.length <= 1}
+              aria-label="Remove payer"
+              className="min-h-[44px] w-11 rounded-xl border border-slate-300 text-slate-500 disabled:opacity-40"
+            >
+              ×
+            </button>
+          </div>
+        ))}
+        <button type="button" onClick={addPayerRow} className="text-sm font-medium text-brand">
+          + Add payer
+        </button>
+      </div>
+
+      {/* Totals */}
+      <div
+        className={`flex items-center justify-between rounded-xl px-3 py-2 text-sm ${
+          amountsMatch ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"
+        }`}
+      >
+        <span>
+          Paid {formatTaka(paidPaisa)} / Total{" "}
+          {totalPaisa === null ? "—" : formatTaka(totalPaisa)}
+        </span>
+        <span className="font-semibold">{amountsMatch ? "Matches" : "Must match exactly"}</span>
+      </div>
+
+      {toast && (
+        <p className={`text-sm ${toast.kind === "ok" ? "text-emerald-600" : "text-red-600"}`}>
+          {toast.msg}
+        </p>
+      )}
+
+      <button
+        type="submit"
+        disabled={!canSubmit}
+        className="min-h-[48px] w-full rounded-xl bg-brand px-5 py-3 text-base font-semibold text-white disabled:opacity-50"
+      >
+        {busy ? "Saving…" : "Save Expense"}
+      </button>
+    </form>
+  );
+}

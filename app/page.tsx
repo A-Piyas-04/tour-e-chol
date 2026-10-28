@@ -1,0 +1,72 @@
+import Link from "next/link";
+import { requireUser, AuthError } from "@/lib/authz";
+import { getMyTours } from "@/lib/actions";
+import { APP_NAME, APP_TAGLINE } from "@/lib/brand";
+import { GoogleSignIn } from "@/components/google-sign-in";
+import { CreateJoinTour } from "@/components/create-join-tour";
+import { SignOutButton } from "@/components/sign-out-button";
+
+export const dynamic = "force-dynamic";
+
+export default async function HomePage() {
+  let user = null;
+  try {
+    user = await requireUser();
+  } catch (err) {
+    if (!(err instanceof AuthError)) throw err;
+  }
+
+  if (!user) {
+    return (
+      <main className="flex min-h-[80dvh] flex-col justify-center gap-8">
+        <header className="space-y-2 text-center">
+          <h1 className="text-3xl font-bold text-brand">{APP_NAME}</h1>
+          <p className="text-base text-slate-600 dark:text-slate-300">{APP_TAGLINE}</p>
+        </header>
+        <GoogleSignIn />
+      </main>
+    );
+  }
+
+  const toursRes = await getMyTours();
+  const tours = toursRes.ok ? (toursRes.data ?? []) : [];
+
+  return (
+    <main className="space-y-6">
+      <header className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-brand">{APP_NAME}</h1>
+          <p className="text-sm text-slate-500">Signed in as {user.name}</p>
+        </div>
+        <SignOutButton />
+      </header>
+
+      <CreateJoinTour />
+
+      <section className="space-y-2">
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">My Tours</h2>
+        {tours.length === 0 ? (
+          <p className="rounded-xl border border-dashed border-slate-300 p-4 text-sm text-slate-500">
+            You haven&apos;t joined any tours yet. Create one or join with a PIN.
+          </p>
+        ) : (
+          <ul className="grid gap-2">
+            {tours.map((t) => (
+              <li key={t.id}>
+                <Link
+                  href={`/t/${t.id}`}
+                  className="flex min-h-[56px] items-center justify-between rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm active:scale-[0.99]"
+                >
+                  <span className="font-medium text-slate-800">{t.name}</span>
+                  <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium capitalize text-slate-600">
+                    {t.role}
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+    </main>
+  );
+}
