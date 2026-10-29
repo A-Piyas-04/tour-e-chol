@@ -9,13 +9,23 @@ export interface Contribution {
   amount_paisa: number;
 }
 
+export type SplitMode = "equal" | "individual";
+
 export interface ExpenseInput {
-  /** Unique participants who share the cost equally (each id appears once). */
+  /** Unique participants who share the cost (each id appears once). */
   participant_ids: string[];
   /** Total cost of the expense in paisa. */
   amount_paisa: number;
   /** Who actually paid, and how much (sum must equal amount_paisa). */
   contributions: Contribution[];
+  /** Defaults to "equal" so existing callers and stored rows are unchanged. */
+  split_mode?: SplitMode;
+  /**
+   * Exact owed share per participant, used only when split_mode is
+   * "individual". Each participant must appear exactly once and the amounts
+   * must sum to amount_paisa; equal expenses leave this undefined.
+   */
+  shares?: Contribution[];
 }
 
 export interface Transfer {
@@ -56,6 +66,22 @@ export function computeShares(
 }
 
 /**
+ * Owed share per participant for ONE expense, in either mode. Individual
+ * Bills uses each participant's own entered bill verbatim (no division);
+ * Equal Split keeps the existing deterministic remainder-in-paisa rule.
+ */
+export function expenseShares(expense: ExpenseInput): Map<string, number> {
+  if (expense.split_mode !== "individual") {
+    return computeShares(expense.amount_paisa, expense.participant_ids);
+  }
+  const shares = new Map<string, number>();
+  for (const s of expense.shares ?? []) {
+    shares.set(s.user_id, (shares.get(s.user_id) ?? 0) + s.amount_paisa);
+  }
+  return shares;
+}
+
+/**
  * Net position of each involved member inside ONE expense:
  *   net = paid - participant share.
  * Positive = creditor (receives), negative = debtor (gives), zero = settled.
@@ -66,7 +92,7 @@ export function expenseNet(expense: ExpenseInput): Map<string, number> {
   const add = (id: string, delta: number) =>
     net.set(id, (net.get(id) ?? 0) + delta);
 
-  const shares = computeShares(expense.amount_paisa, expense.participant_ids);
+  const shares = expenseShares(expense);
   for (const [id, share] of shares) add(id, -share);
   for (const c of expense.contributions) add(c.user_id, c.amount_paisa);
 

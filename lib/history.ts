@@ -49,6 +49,8 @@ interface ExpenseRow {
   contributions: { user_id: string; amount_paisa: number | string }[];
   created_by: string;
   created_at: string;
+  split_mode?: "equal" | "individual" | null;
+  expense_shares?: { user_id: string; amount_paisa: number | string }[] | null;
 }
 
 /**
@@ -78,7 +80,9 @@ export async function getTourHistory(tourId: string): Promise<HistoryResult> {
 
     const { data: expenseData } = await admin
       .from("expenses")
-      .select("title, amount_paisa, participant_ids, contributions, created_by, created_at")
+      .select(
+        "title, amount_paisa, participant_ids, contributions, created_by, created_at, split_mode, expense_shares(user_id, amount_paisa)",
+      )
       .eq("tour_id", tourId);
     const expenses = (expenseData ?? []) as ExpenseRow[];
 
@@ -113,12 +117,19 @@ export async function getTourHistory(tourId: string): Promise<HistoryResult> {
       const payerSummary = (e.contributions ?? [])
         .map((c) => `${nameOf(c.user_id)} (${formatTaka(coercePaisa(c.amount_paisa))})`)
         .join(", ");
+      const individual = e.split_mode === "individual";
+      const sharedPart = individual
+        ? `Individual bills: ${(e.expense_shares ?? [])
+            .map((s) => `${nameOf(s.user_id)} ${formatTaka(coercePaisa(s.amount_paisa))}`)
+            .sort()
+            .join(", ")}`
+        : `${e.participant_ids.length} shared equally`;
       events.push({
         at: e.created_at,
         actor: nameOf(e.created_by),
         kind: "expense_added",
         summary: `Recorded "${e.title}" — ${formatTaka(amount)}`,
-        detail: `${e.participant_ids.length} shared · paid by ${payerSummary}`,
+        detail: `${sharedPart} · paid by ${payerSummary}`,
       });
     }
 

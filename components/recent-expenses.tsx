@@ -45,9 +45,21 @@ export function RecentExpenses({
                 <div className="min-w-0">
                   <p className="truncate font-medium text-slate-800">{e.title}</p>
                   <p className="text-xs text-slate-400">
-                    {e.participantCount} shared · paid by {e.payerSummary} ·{" "}
-                    {new Date(e.createdAt).toLocaleString()}
+                    {e.splitMode === "individual"
+                      ? `${e.participantCount} individual bills`
+                      : `${e.participantCount} shared equally`}{" "}
+                    · paid by {e.payerSummary} · {new Date(e.createdAt).toLocaleString()}
                   </p>
+                  {e.splitMode === "individual" && e.bills.length > 0 && (
+                    <ul className="mt-2 grid gap-0.5 text-xs text-slate-500">
+                      {e.bills.map((b) => (
+                        <li key={b.userId} className="flex justify-between gap-3">
+                          <span className="min-w-0 break-words">{b.name}</span>
+                          <span className="shrink-0 tabular-nums">{formatTaka(b.paisa)}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
                 </div>
                 <div className="flex shrink-0 flex-col items-end gap-1">
                   <span className="font-semibold tabular-nums text-slate-800">

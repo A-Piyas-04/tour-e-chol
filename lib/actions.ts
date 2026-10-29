@@ -10,7 +10,7 @@ import {
   requireOwner,
 } from "./authz";
 import { createAdminClient } from "./supabase/admin";
-import { parseTakaToPaisa, coercePaisa, MoneyError } from "./money";
+import { parseTakaToPaisa, coercePaisa, MoneyError, MAX_PAISA } from "./money";
 import { createClient } from "./supabase/server";
 import { NICKNAME_MAX_LENGTH } from "./display-name";
 import {
@@ -18,6 +18,7 @@ import {
   buildUserLists,
   type ExpenseInput,
   type Contribution,
+  type SplitMode,
 } from "./settlement";
 
 export interface ActionResult<T = undefined> {
@@ -212,6 +213,11 @@ interface MemberRow {
   role: "owner" | "leader" | "member";
 }
 
+interface ShareRow {
+  user_id: string;
+  amount_paisa: number | string;
+}
+
 interface ExpenseRow {
   id: string;
   title: string;
@@ -220,6 +226,10 @@ interface ExpenseRow {
   contributions: Contribution[];
   created_by: string;
   created_at: string;
+  /** Older rows predate the column; the migration defaults them to 'equal'. */
+  split_mode?: SplitMode | null;
+  /** Populated only for 'individual' expenses (see 0002 migration). */
+  expense_shares?: ShareRow[] | null;
 }
 
 async function loadMembers(tourId: string): Promise<MemberRow[]> {
@@ -236,22 +246,41 @@ async function loadExpenses(tourId: string): Promise<ExpenseRow[]> {
   const admin = createAdminClient();
   const { data, error } = await admin
     .from("expenses")
-    .select("id, title, amount_paisa, participant_ids, contributions, created_by, created_at")
+    .select(
+      "id, title, amount_paisa, participant_ids, contributions, created_by, created_at, split_mode, expense_shares(user_id, amount_paisa)",
+    )
     .eq("tour_id", tourId)
     .order("created_at", { ascending: false });
   if (error) throw new AuthError("Could not load expenses.", 403);
   return (data ?? []) as ExpenseRow[];
 }
 
-function toExpenseInputs(rows: ExpenseRow[]): ExpenseInput[] {
-  return rows.map((r) => ({
-    participant_ids: r.participant_ids,
-    amount_paisa: coercePaisa(r.amount_paisa),
-    contributions: r.contributions.map((c) => ({
-      user_id: c.user_id,
-      amount_paisa: coercePaisa(c.amount_paisa),
-    })),
+/** Shares are the single source of truth only for 'individual' expenses. */
+function rowSplitMode(row: ExpenseRow): SplitMode {
+  return row.split_mode === "individual" ? "individual" : "equal";
+}
+
+function rowShares(row: ExpenseRow): Contribution[] {
+  return (row.expense_shares ?? []).map((s) => ({
+    user_id: s.user_id,
+    amount_paisa: coercePaisa(s.amount_paisa),
   }));
+}
+
+function toExpenseInputs(rows: ExpenseRow[]): ExpenseInput[] {
+  return rows.map((r) => {
+    const split_mode = rowSplitMode(r);
+    return {
+      participant_ids: r.participant_ids,
+      amount_paisa: coercePaisa(r.amount_paisa),
+      contributions: r.contributions.map((c) => ({
+        user_id: c.user_id,
+        amount_paisa: coercePaisa(c.amount_paisa),
+      })),
+      split_mode,
+      shares: split_mode === "individual" ? rowShares(r) : undefined,
+    };
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -319,6 +348,12 @@ export interface ManageMember {
   role: "owner" | "leader" | "member";
 }
 
+export interface ExpenseBill {
+  userId: string;
+  name: string;
+  paisa: number;
+}
+
 export interface ManageExpense {
   id: string;
   title: string;
@@ -326,6 +361,9 @@ export interface ManageExpense {
   participantCount: number;
   payerSummary: string;
   createdAt: string;
+  splitMode: SplitMode;
+  /** Per-person bills, present only for Individual Bills expenses. */
+  bills: ExpenseBill[];
 }
 
 export interface TourManageData {
@@ -361,6 +399,17 @@ export async function getTourManageData(
       const payerSummary = contributions
         .map((c) => nameById.get(c.user_id) ?? "Former member")
         .join(", ");
+      const splitMode = rowSplitMode(r);
+      const bills =
+        splitMode === "individual"
+          ? rowShares(r)
+              .map((s) => ({
+                userId: s.user_id,
+                name: nameById.get(s.user_id) ?? "Former member",
+                paisa: s.amount_paisa,
+              }))
+              .sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0))
+          : [];
       return {
         id: r.id,
         title: r.title,
@@ -368,6 +417,8 @@ export async function getTourManageData(
         participantCount: r.participant_ids.length,
         payerSummary,
         createdAt: r.created_at,
+        splitMode,
+        bills,
       };
     });
 
@@ -394,12 +445,21 @@ const payerSchema = z.object({
   taka: z.string().min(1, "Enter the amount each payer paid."),
 });
 
+const billSchema = z.object({
+  userId: z.string().uuid("Invalid participant."),
+  taka: z.string().min(1, "Enter a bill for every selected participant."),
+});
+
 const addExpenseSchema = z.object({
   tourId: z.string().uuid(),
   title: z.string().trim().min(1, "Title is required.").max(100, "Title is too long."),
-  totalTaka: z.string().min(1, "Total amount is required."),
+  // Equal Split only. In Individual Bills the total is derived from the bills.
+  totalTaka: z.string().optional(),
   participantIds: z.array(z.string().uuid()).min(1, "Select at least one participant."),
   payers: z.array(payerSchema).min(1, "Add at least one payer."),
+  splitMode: z.enum(["equal", "individual"]).default("equal"),
+  /** Individual Bills only: exactly one entry per selected participant. */
+  bills: z.array(billSchema).optional(),
 });
 
 export async function addExpense(
@@ -422,8 +482,39 @@ export async function addExpense(
       if (!memberIds.has(id)) return fail("A participant is not a member of this tour.");
     }
 
-    // Total and payer amounts in exact paisa.
-    const totalPaisa = parseTakaToPaisa(parsed.totalTaka);
+    // Total in exact paisa: typed by the leader for Equal Split, derived from
+    // the individual bills for Individual Bills.
+    let totalPaisa: number;
+    let shares: Contribution[] = [];
+
+    if (parsed.splitMode === "individual") {
+      const bills = parsed.bills ?? [];
+      const seenBills = new Set<string>();
+      for (const bill of bills) {
+        if (seenBills.has(bill.userId)) {
+          return fail("Each participant may have only one bill.");
+        }
+        seenBills.add(bill.userId);
+        if (!participantIds.includes(bill.userId)) {
+          return fail("A bill was entered for someone who is not a participant.");
+        }
+      }
+      for (const id of participantIds) {
+        if (!seenBills.has(id)) return fail("Enter a bill for every selected participant.");
+      }
+      // Zero is allowed for a deliberately selected participant; the expense
+      // total below must still be positive.
+      shares = bills.map((bill) => ({
+        user_id: bill.userId,
+        amount_paisa: parseTakaToPaisa(bill.taka, { allowZero: true }),
+      }));
+      totalPaisa = shares.reduce((sum, s) => sum + s.amount_paisa, 0);
+      if (totalPaisa <= 0) return fail("The individual bills must add up to more than zero.");
+      if (totalPaisa > MAX_PAISA) return fail("Amount exceeds the allowed maximum.");
+    } else {
+      if (!parsed.totalTaka) return fail("Total amount is required.");
+      totalPaisa = parseTakaToPaisa(parsed.totalTaka);
+    }
 
     const contributions: Contribution[] = [];
     const seenPayers = new Set<string>();
@@ -441,23 +532,44 @@ export async function addExpense(
       return fail("The paid total must equal the expense total exactly.");
     }
 
-    const { data, error } = await admin
-      .from("expenses")
-      .insert({
-        tour_id: parsed.tourId,
-        title: parsed.title,
-        amount_paisa: totalPaisa,
-        participant_ids: participantIds,
-        contributions,
-        created_by: membership.id,
-      })
-      .select("id")
-      .single();
-    if (error || !data) return fail("Could not save the expense.");
+    let expenseId: string;
+    if (parsed.splitMode === "individual") {
+      // The expense row and its share rows must commit together: a SQL
+      // function keeps that in one transaction (see 0002 migration).
+      const { data, error } = await admin.rpc("create_expense_with_shares", {
+        p_tour_id: parsed.tourId,
+        p_title: parsed.title,
+        p_amount_paisa: totalPaisa,
+        p_participant_ids: participantIds,
+        p_contributions: contributions,
+        p_created_by: membership.id,
+        p_split_mode: "individual",
+        p_shares: shares,
+      });
+      if (error || !data) return fail("Could not save the expense.");
+      expenseId = data as string;
+    } else {
+      // Equal Split writes a single row, so it stays on the original path and
+      // lets split_mode fall back to the column default.
+      const { data, error } = await admin
+        .from("expenses")
+        .insert({
+          tour_id: parsed.tourId,
+          title: parsed.title,
+          amount_paisa: totalPaisa,
+          participant_ids: participantIds,
+          contributions,
+          created_by: membership.id,
+        })
+        .select("id")
+        .single();
+      if (error || !data) return fail("Could not save the expense.");
+      expenseId = data.id;
+    }
 
     revalidatePath(`/t/${parsed.tourId}`);
     revalidatePath(`/t/${parsed.tourId}/manage`);
-    return ok({ expenseId: data.id });
+    return ok({ expenseId });
   } catch (err) {
     return toResult(err);
   }

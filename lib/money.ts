@@ -13,8 +13,15 @@ export class MoneyError extends Error {}
  * Accepts: "60", "60.5", "60.50", " 60.50 " (surrounding whitespace).
  * Rejects: negatives, "0", "0.00", "1.234" (>2 decimals), empty/malformed
  *          strings, NaN/Infinity text, and values above MAX_PAISA.
+ *
+ * `allowZero` permits "0"/"0.00" for an Individual Bills participant who was
+ * intentionally selected but consumed nothing. The expense total itself is
+ * still required to be positive by the caller.
  */
-export function parseTakaToPaisa(input: string): number {
+export function parseTakaToPaisa(
+  input: string,
+  options: { allowZero?: boolean } = {},
+): number {
   if (typeof input !== "string") {
     throw new MoneyError("Amount must be a string.");
   }
@@ -38,7 +45,7 @@ export function parseTakaToPaisa(input: string): number {
   if (!Number.isSafeInteger(paisa)) {
     throw new MoneyError("Amount is too large.");
   }
-  if (paisa <= 0) {
+  if (paisa <= 0 && !options.allowZero) {
     throw new MoneyError("Amount must be greater than zero.");
   }
   if (paisa > MAX_PAISA) {

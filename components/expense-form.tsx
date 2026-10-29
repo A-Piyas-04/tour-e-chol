@@ -11,10 +11,12 @@ interface PayerRow {
   taka: string;
 }
 
+type SplitMode = "equal" | "individual";
+
 /** Parse leniently for live totals: invalid/empty -> null (not an error). */
-function tryPaisa(value: string): number | null {
+function tryPaisa(value: string, allowZero = false): number | null {
   try {
-    return parseTakaToPaisa(value);
+    return parseTakaToPaisa(value, { allowZero });
   } catch {
     return null;
   }
@@ -29,15 +31,40 @@ export function ExpenseForm({
 }) {
   const router = useRouter();
   const [title, setTitle] = useState("");
+  const [splitMode, setSplitMode] = useState<SplitMode>("equal");
   const [totalTaka, setTotalTaka] = useState("");
   const [participants, setParticipants] = useState<Set<string>>(new Set());
+  // Bills are kept per member id so toggling a participant off and on again
+  // does not lose what was already typed.
+  const [bills, setBills] = useState<Record<string, string>>({});
   const [payers, setPayers] = useState<PayerRow[]>([
     { key: 1, userId: members[0]?.userId ?? "", taka: "" },
   ]);
   const [busy, setBusy] = useState(false);
   const [toast, setToast] = useState<{ kind: "ok" | "err"; msg: string } | null>(null);
 
-  const totalPaisa = tryPaisa(totalTaka);
+  const selectedMembers = useMemo(
+    () => members.filter((m) => participants.has(m.userId)),
+    [members, participants],
+  );
+
+  // Individual Bills: every selected participant needs a valid bill (৳0 is
+  // allowed) and the total is the sum of those bills — never typed by hand.
+  const billsComplete =
+    selectedMembers.length > 0 &&
+    selectedMembers.every((m) => tryPaisa(bills[m.userId] ?? "", true) !== null);
+  const billsTotalPaisa = selectedMembers.reduce(
+    (sum, m) => sum + (tryPaisa(bills[m.userId] ?? "", true) ?? 0),
+    0,
+  );
+
+  const totalPaisa =
+    splitMode === "individual"
+      ? billsComplete && billsTotalPaisa > 0
+        ? billsTotalPaisa
+        : null
+      : tryPaisa(totalTaka);
+
   const paidPaisa = useMemo(
     () => payers.reduce((sum, p) => sum + (tryPaisa(p.taka) ?? 0), 0),
     [payers],
@@ -75,6 +102,7 @@ export function ExpenseForm({
   function reset() {
     setTitle("");
     setTotalTaka("");
+    setBills({});
     setParticipants(new Set());
     setPayers([{ key: Date.now(), userId: members[0]?.userId ?? "", taka: "" }]);
   }
@@ -87,8 +115,13 @@ export function ExpenseForm({
     const res = await addExpense({
       tourId,
       title,
-      totalTaka,
-      participantIds: [...participants],
+      splitMode,
+      totalTaka: splitMode === "equal" ? totalTaka : undefined,
+      participantIds: selectedMembers.map((m) => m.userId),
+      bills:
+        splitMode === "individual"
+          ? selectedMembers.map((m) => ({ userId: m.userId, taka: bills[m.userId] ?? "" }))
+          : undefined,
       payers: payers.map((p) => ({ userId: p.userId, taka: p.taka })),
     });
     if (res.ok) {
@@ -117,17 +150,44 @@ export function ExpenseForm({
         />
       </label>
 
-      <label className="block text-sm font-medium text-slate-700">
-        Total amount (৳)
-        <input
-          value={totalTaka}
-          onChange={(e) => setTotalTaka(e.target.value)}
-          inputMode="decimal"
-          placeholder="1000.00"
-          className="mt-1 min-h-[44px] w-full rounded-xl border border-slate-300 px-3 text-base text-slate-900"
-          required
-        />
-      </label>
+      {/* Split mode */}
+      <div className="space-y-1">
+        <span className="text-sm font-medium text-slate-700">How is it split?</span>
+        <div className="flex gap-2 rounded-xl bg-slate-100 p-1">
+          {(
+            [
+              ["equal", "Equal split"],
+              ["individual", "Individual bills"],
+            ] as const
+          ).map(([mode, label]) => (
+            <button
+              type="button"
+              key={mode}
+              aria-pressed={splitMode === mode}
+              onClick={() => setSplitMode(mode)}
+              className={`min-h-[40px] flex-1 rounded-lg px-3 text-sm font-medium ${
+                splitMode === mode ? "bg-white text-brand shadow-sm" : "text-slate-500"
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {splitMode === "equal" && (
+        <label className="block text-sm font-medium text-slate-700">
+          Total amount (৳)
+          <input
+            value={totalTaka}
+            onChange={(e) => setTotalTaka(e.target.value)}
+            inputMode="decimal"
+            placeholder="1000.00"
+            className="mt-1 min-h-[44px] w-full rounded-xl border border-slate-300 px-3 text-base text-slate-900"
+            required
+          />
+        </label>
+      )}
 
       {/* Participants */}
       <div className="space-y-2">
@@ -165,6 +225,53 @@ export function ExpenseForm({
           })}
         </div>
       </div>
+
+      {/* Individual bills — one input per selected participant. */}
+      {splitMode === "individual" && (
+        <div className="space-y-2">
+          <span className="text-sm font-medium text-slate-700">Each person&rsquo;s bill (৳)</span>
+          {selectedMembers.length === 0 ? (
+            <p className="rounded-xl border border-dashed border-slate-300 p-3 text-sm text-slate-400">
+              Select who shared this expense first.
+            </p>
+          ) : (
+            selectedMembers.map((m) => {
+              const raw = bills[m.userId] ?? "";
+              const invalid = raw.trim() !== "" && tryPaisa(raw, true) === null;
+              return (
+                <div key={m.userId} className="flex items-center gap-2">
+                  <span className="min-w-0 flex-1 break-words text-sm text-slate-700">{m.name}</span>
+                  <input
+                    value={raw}
+                    onChange={(e) => setBills((prev) => ({ ...prev, [m.userId]: e.target.value }))}
+                    inputMode="decimal"
+                    placeholder="৳"
+                    aria-label={`Bill for ${m.name}`}
+                    aria-invalid={invalid}
+                    className={`min-h-[44px] w-28 shrink-0 rounded-xl border px-3 text-base text-slate-900 ${
+                      invalid ? "border-red-400" : "border-slate-300"
+                    }`}
+                  />
+                </div>
+              );
+            })
+          )}
+          <div className="flex items-center justify-between rounded-xl bg-slate-50 px-3 py-2 text-sm text-slate-700">
+            <span>Total (auto)</span>
+            <span className="font-semibold tabular-nums">
+              {billsComplete ? formatTaka(billsTotalPaisa) : "—"}
+            </span>
+          </div>
+          {selectedMembers.length > 0 && !billsComplete && (
+            <p className="text-xs text-red-600">
+              Enter a valid amount (max 2 decimals) for every selected person.
+            </p>
+          )}
+          {billsComplete && billsTotalPaisa === 0 && (
+            <p className="text-xs text-red-600">The bills must add up to more than ৳0.00.</p>
+          )}
+        </div>
+      )}
 
       {/* Payers */}
       <div className="space-y-2">
