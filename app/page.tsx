@@ -6,6 +6,7 @@ import { Logo } from "@/components/logo";
 import { GoogleSignIn } from "@/components/google-sign-in";
 import { CreateJoinTour } from "@/components/create-join-tour";
 import { SignOutButton } from "@/components/sign-out-button";
+import { NicknameSetting } from "@/components/nickname-setting";
 
 export const dynamic = "force-dynamic";
 
@@ -37,18 +38,21 @@ export default async function HomePage() {
 
   return (
     <main className="space-y-7">
-      <header className="flex items-center justify-between gap-3 pb-1">
-        <div className="flex min-w-0 items-center gap-3">
-          <div className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-white shadow-sm ring-1 ring-teal-100">
-            <Logo className="h-10 w-10" />
+      <div className="space-y-2">
+        <header className="flex items-center justify-between gap-3 pb-1">
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-white shadow-sm ring-1 ring-teal-100">
+              <Logo className="h-10 w-10" />
+            </div>
+            <div className="min-w-0">
+              <h1 className="text-xl font-bold tracking-tight text-slate-900">{APP_DISPLAY_NAME}</h1>
+              <p className="truncate text-sm text-slate-500">Hi, {user.name}</p>
+            </div>
           </div>
-          <div className="min-w-0">
-            <h1 className="text-xl font-bold tracking-tight text-slate-900">{APP_DISPLAY_NAME}</h1>
-            <p className="truncate text-sm text-slate-500">Hi, {user.name}</p>
-          </div>
-        </div>
-        <SignOutButton />
-      </header>
+          <SignOutButton />
+        </header>
+        <NicknameSetting nickname={user.nickname} />
+      </div>
 
       <section className="space-y-4 rounded-[28px] bg-teal-900 px-5 py-6 text-white shadow-[0_16px_32px_rgba(15,118,110,0.16)]">
         <div>

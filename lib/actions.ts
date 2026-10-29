@@ -11,6 +11,8 @@ import {
 } from "./authz";
 import { createAdminClient } from "./supabase/admin";
 import { parseTakaToPaisa, coercePaisa, MoneyError } from "./money";
+import { createClient } from "./supabase/server";
+import { NICKNAME_MAX_LENGTH } from "./display-name";
 import {
   settle,
   buildUserLists,
@@ -43,6 +45,41 @@ function toResult(err: unknown): ActionResult<never> {
 // ---------------------------------------------------------------------------
 // Tours
 // ---------------------------------------------------------------------------
+
+const nicknameSchema = z.string().trim().max(NICKNAME_MAX_LENGTH, "Nickname is too long.")
+  .refine((value) => !/[\u0000-\u001f\u007f]/u.test(value), "Nickname must be a single line.");
+
+/** Save a user's chosen name for both future and existing tours. Empty clears it. */
+export async function setNickname(input: string): Promise<ActionResult> {
+  try {
+    const nickname = nicknameSchema.parse(input);
+    const user = await requireUser();
+    const supabase = await createClient();
+    const admin = createAdminClient();
+    const { error: authError } = await supabase.auth.updateUser({
+      data: { nickname: nickname || null },
+    });
+    if (authError) return fail("Could not save your nickname. Please try again.");
+
+    const { error: memberError } = await admin
+      .from("tour_members")
+      .update({ display_name: nickname || user.defaultName })
+      .eq("user_id", user.id);
+    if (memberError) {
+      // Keep auth metadata and member labels in sync if the second write fails.
+      const { error: rollbackError } = await supabase.auth.updateUser({
+        data: { nickname: user.nickname },
+      });
+      if (rollbackError) console.error("Could not restore nickname after member update failed:", rollbackError);
+      return fail("Could not save your nickname. Please try again.");
+    }
+
+    revalidatePath("/");
+    return ok();
+  } catch (err) {
+    return toResult(err);
+  }
+}
 
 const createTourSchema = z.object({
   name: z.string().trim().min(1, "Tour name is required.").max(60, "Tour name is too long."),
@@ -222,6 +259,7 @@ function toExpenseInputs(rows: ExpenseRow[]): ExpenseInput[] {
 // ---------------------------------------------------------------------------
 
 export interface BalanceRow {
+  userId: string;
   name: string;
   paisa: number;
 }
@@ -261,8 +299,8 @@ export async function getTourBalances(
       tourName: tour.name,
       userName: membership.name,
       role: membership.role,
-      give: lists.give.map((r) => ({ name: label(r.userId), paisa: r.paisa })),
-      get: lists.get.map((r) => ({ name: label(r.userId), paisa: r.paisa })),
+      give: lists.give.map((r) => ({ userId: r.userId, name: label(r.userId), paisa: r.paisa })),
+      get: lists.get.map((r) => ({ userId: r.userId, name: label(r.userId), paisa: r.paisa })),
       totalGive: lists.totalGive,
       totalGet: lists.totalGet,
     });

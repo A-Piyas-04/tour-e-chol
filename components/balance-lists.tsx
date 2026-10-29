@@ -93,7 +93,7 @@ function Section({
   tone,
 }: {
   title: string;
-  rows: { name: string; paisa: number }[];
+  rows: { userId: string; name: string; paisa: number }[];
   total: number;
   tone: "give" | "get";
 }) {
@@ -110,7 +110,7 @@ function Section({
         <ul className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
           {rows.map((r) => (
             <li
-              key={r.name}
+              key={r.userId}
               className="flex items-center justify-between gap-3 border-b border-slate-100 px-4 py-3 last:border-b-0"
             >
               <span className="min-w-0 break-words font-medium text-slate-800">{r.name}</span>

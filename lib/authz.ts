@@ -1,6 +1,7 @@
 import "server-only";
 import { createClient } from "./supabase/server";
 import { createAdminClient } from "./supabase/admin";
+import { getUserNames } from "./display-name";
 
 /**
  * Authorization helpers. These are the ONLY gate protecting app data, because
@@ -20,6 +21,8 @@ export class AuthError extends Error {
 export interface AuthUser {
   id: string;
   name: string;
+  defaultName: string;
+  nickname: string | null;
 }
 
 export type TourRole = "owner" | "leader" | "member";
@@ -38,12 +41,7 @@ export async function requireUser(): Promise<AuthUser> {
   if (!user) {
     throw new AuthError("You must sign in.", 401);
   }
-  const name =
-    (user.user_metadata?.full_name as string | undefined) ??
-    (user.user_metadata?.name as string | undefined) ??
-    (user.email as string | undefined) ??
-    "Member";
-  return { id: user.id, name };
+  return { id: user.id, ...getUserNames(user.user_metadata, user.email) };
 }
 
 /**
