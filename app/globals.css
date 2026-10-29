@@ -8,10 +8,14 @@
 
 html,
 body {
-  background-color: #f8fafc;
+  background-color: #f1f7f6;
   color: #0f172a;
   color-scheme: light;
   -webkit-text-size-adjust: 100%;
+}
+
+body {
+  background-image: radial-gradient(circle at 50% -120px, #d6f2eb 0, transparent 460px);
 }
 
 /* Mobile-first: keep the app readable in a narrow column on phones while
@@ -21,9 +25,57 @@ body {
   max-width: 480px;
   margin: 0 auto;
   min-height: 100dvh;
-  padding: 16px 16px calc(24px + var(--safe-bottom));
+  padding: 20px 16px calc(32px + var(--safe-bottom));
   /* Safety net: never let a stray wide child cause horizontal scrolling. */
   overflow-x: hidden;
+}
+
+.navigation-loading {
+  display: grid;
+  min-height: calc(100dvh - 72px - var(--safe-bottom));
+  place-items: center;
+  text-align: center;
+}
+
+.navigation-loading__content {
+  width: min(100%, 280px);
+}
+
+.navigation-loading__mascot {
+  display: grid;
+  width: 88px;
+  height: 88px;
+  margin: 0 auto;
+  place-items: center;
+  border: 1px solid #bde6db;
+  border-radius: 28px;
+  background: #fff;
+  box-shadow: 0 12px 32px rgba(15, 118, 110, .1);
+}
+
+.navigation-loading__bar {
+  height: 5px;
+  margin: 26px auto 0;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #d9e8e5;
+}
+
+.navigation-loading__bar span {
+  display: block;
+  width: 40%;
+  height: 100%;
+  border-radius: inherit;
+  background: #0f766e;
+  animation: loading-travel 1.3s ease-in-out infinite alternate;
+}
+
+@keyframes loading-travel {
+  to { transform: translateX(150%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .navigation-loading__bar span { animation: none; width: 100%; }
 }
 
 /* Long unbroken strings (names, IDs) should wrap instead of overflowing. */

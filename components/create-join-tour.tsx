@@ -17,20 +17,20 @@ export function CreateJoinTour() {
       <button
         type="button"
         onClick={() => setMode("create")}
-        className="min-h-[56px] rounded-2xl bg-brand px-5 py-4 text-left text-base font-semibold text-white shadow-sm active:scale-[0.99]"
+        className="min-h-[72px] rounded-2xl bg-white px-5 py-4 text-left text-base font-semibold text-teal-950 shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white active:scale-[0.99]"
       >
         Create a Tour
-        <span className="block text-sm font-normal text-teal-50/90">
+        <span className="block text-sm font-normal text-slate-500">
           Start a new tour and get a join PIN to share.
         </span>
       </button>
       <button
         type="button"
         onClick={() => setMode("join")}
-        className="min-h-[56px] rounded-2xl border border-slate-300 bg-white px-5 py-4 text-left text-base font-semibold text-slate-800 shadow-sm active:scale-[0.99]"
+        className="min-h-[72px] rounded-2xl border border-white/30 bg-white/10 px-5 py-4 text-left text-base font-semibold text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white active:scale-[0.99]"
       >
         Join a Tour
-        <span className="block text-sm font-normal text-slate-500">
+        <span className="block text-sm font-normal text-teal-100">
           Enter the 8-digit PIN a friend shared with you.
         </span>
       </button>
@@ -59,7 +59,7 @@ function CreateForm({ onBack }: { onBack: () => void }) {
   }
 
   return (
-    <form onSubmit={submit} className="grid gap-3">
+    <form onSubmit={submit} className="grid gap-3 rounded-2xl bg-white p-4">
       <BackButton onClick={onBack} />
       <label className="text-sm font-medium text-slate-700">
         Tour name
@@ -116,7 +116,7 @@ function JoinForm({ onBack }: { onBack: () => void }) {
   }
 
   return (
-    <form onSubmit={submit} className="grid gap-3">
+    <form onSubmit={submit} className="grid gap-3 rounded-2xl bg-white p-4">
       <BackButton onClick={onBack} />
       <label className="text-sm font-medium text-slate-700">
         Join PIN

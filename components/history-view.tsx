@@ -20,7 +20,7 @@ const KIND_DOT: Record<HistoryKind, string> = {
 };
 
 export function HistoryView({ events }: { events: HistoryEvent[] }) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(true);
 
   return (
     <div className="space-y-4">

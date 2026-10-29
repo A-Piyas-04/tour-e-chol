@@ -22,23 +22,26 @@ export default async function TourPage({
   const isLeader = data.role === "leader" || data.role === "owner";
 
   return (
-    <main className="space-y-5">
-      <header className="space-y-1">
-        <Link href="/" className="text-sm font-medium text-brand">
+    <main className="space-y-6">
+      <header className="rounded-[28px] bg-teal-900 p-6 text-white shadow-[0_16px_32px_rgba(15,118,110,0.16)]">
+        <Link href="/" className="text-sm font-medium text-teal-100 underline-offset-4 hover:underline">
           ← All tours
         </Link>
-        <h1 className="text-2xl font-bold text-slate-900">{data.tourName}</h1>
-        <p className="text-sm text-slate-500">{data.userName}</p>
+        <h1 className="mt-5 text-3xl font-bold tracking-tight">{data.tourName}</h1>
+        <p className="mt-1 text-sm text-teal-100">Your shared expenses, at a glance.</p>
+        <p className="mt-4 border-t border-white/20 pt-3 text-xs text-teal-100">Viewing as {data.userName}</p>
       </header>
 
-      {isLeader && (
-        <Link
-          href={`/t/${tourId}/manage`}
-          className="flex min-h-[48px] items-center justify-center rounded-xl bg-brand px-4 py-3 text-base font-semibold text-white active:scale-[0.99]"
-        >
-          Manage expenses
+      <nav className="grid grid-cols-2 gap-3" aria-label="Tour pages">
+        {isLeader && (
+          <Link href={`/t/${tourId}/manage`} className="flex min-h-[52px] items-center justify-center rounded-2xl bg-brand px-3 text-center text-sm font-semibold text-white shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand active:scale-[0.99]">
+            Manage expenses
+          </Link>
+        )}
+        <Link href={`/t/${tourId}/history`} className={`flex min-h-[52px] items-center justify-center rounded-2xl border border-teal-200 bg-white px-3 text-center text-sm font-semibold text-brand shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand active:scale-[0.99] ${isLeader ? "" : "col-span-2"}`}>
+          Activity history
         </Link>
-      )}
+      </nav>
 
       <BalanceLists tourId={tourId} initial={data} />
     </main>
