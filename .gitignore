@@ -30,3 +30,6 @@ next-env.d.ts
 
 # vercel
 .vercel
+
+# Local expanded test suite
+/tests/

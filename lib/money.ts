@@ -52,6 +52,9 @@ export function parseTakaToPaisa(input: string): number {
  * columns as strings) into a safe integer paisa count.
  */
 export function coercePaisa(value: unknown): number {
+  if (typeof value === "string" && !/^\d+$/.test(value)) {
+    throw new MoneyError("Stored amount is not a safe integer.");
+  }
   const n = typeof value === "string" ? Number(value) : (value as number);
   if (typeof n !== "number" || !Number.isSafeInteger(n)) {
     throw new MoneyError("Stored amount is not a safe integer.");
